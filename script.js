@@ -154,6 +154,18 @@ function init() {
   loadCartFromLocalStorage();
   setupEventListeners();
   
+  // Гарантуємо, що кошик закритий при завантаженні
+  const cartModal = document.getElementById('cart-modal');
+  if (cartModal) {
+    cartModal.classList.add('hidden');
+    cartModal.classList.remove('active');
+  }
+  
+  const overlay = document.getElementById('overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+  
   if (isMobile) {
     document.body.classList.add('mobile-device');
   }
@@ -174,13 +186,19 @@ function setupEventListeners() {
     phoneInput.addEventListener('input', formatPhoneInput);
   }
   
-  // Додаємо touch-події для кнопок кошика
-  const cartButtons = document.querySelectorAll('.cart-buttons button, .checkout-buttons button');
-  cartButtons.forEach(button => {
-    button.addEventListener('touchend', function(e) {
+  // Додаємо обробник для всіх кнопок кошика
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.cart-buttons button')) {
       e.preventDefault();
-      this.click();
-    }, { passive: false });
+      const button = e.target.closest('button');
+      if (button.textContent.includes('Очистити')) {
+        clearCart();
+      } else if (button.textContent.includes('Оформити')) {
+        checkout();
+      } else if (button.textContent.includes('Продовжити')) {
+        toggleCart();
+      }
+    }
   });
 }
 
@@ -202,7 +220,9 @@ function closeAllModals() {
   
   if (cartModal) {
     cartModal.classList.remove('active');
-    cartModal.classList.add('hidden');
+    setTimeout(() => {
+      cartModal.classList.add('hidden');
+    }, 300);
   }
   
   if (checkoutModal) {
@@ -243,14 +263,6 @@ function displayProducts() {
       <div class="product-tooltip">${product.description}</div>
       <button onclick="addToCart(${product.id})">Додати</button>
     `;
-    
-    // Додаємо touch-події для кнопок продуктів
-    const addButton = div.querySelector('button');
-    addButton.addEventListener('touchend', function(e) {
-      e.preventDefault();
-      addToCart(product.id);
-    }, { passive: false });
-    
     list.appendChild(div);
   });
 }
@@ -348,18 +360,11 @@ async function submitOrder(event) {
     });
 
     if (response.ok) {
-      // Показуємо сповіщення про успішне замовлення
       showNotification('Замовлення успішно відправлено! Дякуємо!');
-      
-      // Очищаємо кошик
       cart = [];
       updateCart();
       saveCartToLocalStorage();
-      
-      // Закриваємо модальні вікна
       closeAllModals();
-      
-      // Очищаємо форму
       form.reset();
     } else {
       throw new Error('Помилка відправки');
@@ -387,15 +392,21 @@ function toggleCart() {
   const cartModal = document.getElementById('cart-modal');
   const overlay = document.getElementById('overlay');
   
-  cartModal.classList.toggle('hidden');
-  overlay.classList.toggle('hidden');
-  
   if (cartModal.classList.contains('hidden')) {
-    cartModal.classList.remove('active');
-  } else {
+    // Відкриваємо кошик
+    cartModal.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    
     setTimeout(() => {
       cartModal.classList.add('active');
     }, 10);
+  } else {
+    // Закриваємо кошик
+    cartModal.classList.remove('active');
+    setTimeout(() => {
+      cartModal.classList.add('hidden');
+      overlay.classList.add('hidden');
+    }, 300);
   }
   
   // Для iOS фіксуємо body при відкритому модальному вікні
