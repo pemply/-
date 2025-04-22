@@ -648,16 +648,6 @@ footer {
     min-width: 120px;
   }
   
-  .success-modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2000;
-    width: 90%;
-    max-width: 500px;
-    animation: fadeIn 0.3s;
-  }
   
   .success-content {
     background: white;
@@ -733,8 +723,7 @@ footer {
 }
 
 .mobile-device .cart-modal,
-.mobile-device .checkout-modal,
-.mobile-device .success-modal {
+.mobile-device .checkout-modal {
   transform: translateY(0);
   top: 10%;
   left: 5%;

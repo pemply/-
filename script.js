@@ -144,6 +144,7 @@ const products = [
     description: 'Комплекс для зниження жирової прослойки та підвищення витривалості.'
   }
 ];
+
 let cart = [];
 let selectedCategory = 'Всі';
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -153,7 +154,6 @@ function init() {
   loadCartFromLocalStorage();
   setupEventListeners();
   
-  // Додаємо клас для body, щоб знати, що це мобільний пристрій
   if (isMobile) {
     document.body.classList.add('mobile-device');
   }
@@ -163,7 +163,10 @@ function setupEventListeners() {
   const overlay = document.getElementById('overlay');
   if (overlay) {
     overlay.addEventListener('click', closeAllModals);
-    overlay.addEventListener('touchstart', closeAllModals);
+    overlay.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      closeAllModals();
+    }, { passive: false });
   }
   
   const phoneInput = document.getElementById('phone');
@@ -171,12 +174,14 @@ function setupEventListeners() {
     phoneInput.addEventListener('input', formatPhoneInput);
   }
   
-  // Додаємо обробник для кнопки "Гаразд" у вікні успіху
-  const successButton = document.querySelector('#success-modal button');
-  if (successButton) {
-    successButton.addEventListener('click', closeSuccessModal);
-    successButton.addEventListener('touchend', closeSuccessModal);
-  }
+  // Додаємо touch-події для кнопок кошика
+  const cartButtons = document.querySelectorAll('.cart-buttons button, .checkout-buttons button');
+  cartButtons.forEach(button => {
+    button.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      this.click();
+    }, { passive: false });
+  });
 }
 
 function formatPhoneInput() {
@@ -193,7 +198,6 @@ function formatPhoneInput() {
 function closeAllModals() {
   const cartModal = document.getElementById('cart-modal');
   const checkoutModal = document.getElementById('checkout-modal');
-  const successModal = document.getElementById('success-modal');
   const overlay = document.getElementById('overlay');
   
   if (cartModal) {
@@ -205,28 +209,11 @@ function closeAllModals() {
     checkoutModal.classList.add('hidden');
   }
   
-  if (successModal) {
-    successModal.classList.add('hidden');
-  }
-  
-  if (overlay) {
-    overlay.classList.add('hidden');
-  }
-}
-
-function closeSuccessModal() {
-  const successModal = document.getElementById('success-modal');
-  const overlay = document.getElementById('overlay');
-  
-  if (successModal) {
-    successModal.classList.add('hidden');
-  }
-  
   if (overlay) {
     overlay.classList.add('hidden');
   }
   
-  // Додатковий код для iOS, щоб запобігти залишенню прокрутки
+  // Для iOS повертаємо стандартне прокручування
   if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
     document.body.style.overflow = 'auto';
     document.body.style.position = 'static';
@@ -256,6 +243,14 @@ function displayProducts() {
       <div class="product-tooltip">${product.description}</div>
       <button onclick="addToCart(${product.id})">Додати</button>
     `;
+    
+    // Додаємо touch-події для кнопок продуктів
+    const addButton = div.querySelector('button');
+    addButton.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      addToCart(product.id);
+    }, { passive: false });
+    
     list.appendChild(div);
   });
 }
@@ -292,20 +287,27 @@ function updateCart() {
   document.getElementById('total-price').textContent = total.toFixed(2);
   
   list.innerHTML = cart.length === 0 
-    ? '<li>Кошик порожній</li>'
+    ? '<li class="empty-cart">Кошик порожній</li>'
     : cart.map((item, index) => `
-        <li>
-          <span>${item.name} – ${item.price} грн × ${item.quantity || 1}</span>
-          <div>
-            <button onclick="changeQuantity(${index}, -1)">-</button>
-            <span>${item.quantity || 1}</span>
-            <button onclick="changeQuantity(${index}, 1)">+</button>
-            <button class="remove" onclick="removeFromCart(${index})">❌</button>
+        <li class="cart-item">
+          <span class="item-name">${item.name}</span>
+          <div class="item-controls">
+            <span class="item-price">${item.price} грн × ${item.quantity || 1}</span>
+            <div class="quantity-controls">
+              <button onclick="changeQuantity(${index}, -1)">-</button>
+              <span>${item.quantity || 1}</span>
+              <button onclick="changeQuantity(${index}, 1)">+</button>
+            </div>
+            <button class="remove-btn" onclick="removeFromCart(${index})">×</button>
           </div>
         </li>
       `).join('');
   
-  document.querySelector('.cart-buttons button:nth-child(2)').disabled = cart.length === 0;
+  // Оновлюємо стан кнопки оформлення замовлення
+  const checkoutBtn = document.querySelector('.cart-buttons button:nth-child(2)');
+  if (checkoutBtn) {
+    checkoutBtn.disabled = cart.length === 0;
+  }
 }
 
 async function submitOrder(event) {
@@ -327,7 +329,6 @@ async function submitOrder(event) {
   ).join('\n');
 
   try {
-    // Відправка даних на FormSubmit
     const response = await fetch(form.action, {
       method: 'POST',
       headers: {
@@ -347,22 +348,19 @@ async function submitOrder(event) {
     });
 
     if (response.ok) {
-      showSuccessMessage(name, total);
+      // Показуємо сповіщення про успішне замовлення
+      showNotification('Замовлення успішно відправлено! Дякуємо!');
+      
+      // Очищаємо кошик
       cart = [];
       updateCart();
       saveCartToLocalStorage();
+      
+      // Закриваємо модальні вікна
+      closeAllModals();
+      
+      // Очищаємо форму
       form.reset();
-      
-      // Закриваємо модальне вікно оформлення
-      document.getElementById('checkout-modal').classList.add('hidden');
-      
-      // Для мобільних пристроїв додаємо невелику затримку
-      if (isMobile) {
-        setTimeout(() => {
-          document.getElementById('overlay').classList.remove('hidden');
-          document.getElementById('success-modal').classList.remove('hidden');
-        }, 100);
-      }
     } else {
       throw new Error('Помилка відправки');
     }
@@ -371,30 +369,6 @@ async function submitOrder(event) {
     showNotification('Помилка при відправці замовлення. Спробуйте ще раз.', 'error');
   }
 }
-
-function showSuccessMessage(name, total) {
-  const successMessage = document.getElementById('success-message');
-  const successModal = document.getElementById('success-modal');
-  const overlay = document.getElementById('overlay');
-  
-  if (!successMessage || !successModal || !overlay) return;
-  
-  successMessage.innerHTML = `
-    <p>Дякуємо, ${name}!</p>
-    <p>Ваше замовлення на суму <strong>${total} грн</strong> прийнято.</p>
-    <p>Ми зв'яжемося з вами для підтвердження.</p>
-  `;
-  
-  overlay.classList.remove('hidden');
-  successModal.classList.remove('hidden');
-  
-  // Додатковий код для iOS, щоб запобігти прокрутці під модальним вікном
-  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-  }
-}
-
 
 function showNotification(message, type = 'success') {
   const notification = document.createElement('div');
@@ -411,9 +385,29 @@ function showNotification(message, type = 'success') {
 
 function toggleCart() {
   const cartModal = document.getElementById('cart-modal');
+  const overlay = document.getElementById('overlay');
+  
   cartModal.classList.toggle('hidden');
-  document.getElementById('overlay').classList.toggle('hidden');
-  setTimeout(() => cartModal.classList.toggle('active'), 10);
+  overlay.classList.toggle('hidden');
+  
+  if (cartModal.classList.contains('hidden')) {
+    cartModal.classList.remove('active');
+  } else {
+    setTimeout(() => {
+      cartModal.classList.add('active');
+    }, 10);
+  }
+  
+  // Для iOS фіксуємо body при відкритому модальному вікні
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    if (!cartModal.classList.contains('hidden')) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+    } else {
+      document.body.style.overflow = 'auto';
+      document.body.style.position = 'static';
+    }
+  }
 }
 
 function checkout() {
@@ -431,7 +425,11 @@ function cancelCheckout() {
 function changeQuantity(index, delta) {
   const item = cart[index];
   item.quantity = (item.quantity || 1) + delta;
-  if (item.quantity < 1) cart.splice(index, 1);
+  
+  if (item.quantity < 1) {
+    cart.splice(index, 1);
+  }
+  
   updateCart();
   saveCartToLocalStorage();
 }
@@ -446,6 +444,7 @@ function clearCart() {
   cart = [];
   updateCart();
   saveCartToLocalStorage();
+  showNotification('Кошик очищено');
 }
 
 function saveCartToLocalStorage() {
