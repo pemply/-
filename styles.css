@@ -750,4 +750,29 @@ footer {
   touch-action: manipulation; /* Покращує обробку дотиків на мобільних */
   min-height: 44px; /* Мінімальний розмір для дотиків */
 }
+
+/* Додайте ці стилі в кінець вашого CSS файлу */
+@media (max-width: 768px) {
+  .cart-modal {
+    width: 90%;
+    right: -90%;
+  }
+
+  .cart-modal.active {
+    right: 0;
+  }
+
+  .cart-buttons button {
+    touch-action: manipulation; /* Покращує обробку дотиків */
+    min-height: 44px; /* Мінімальний розмір для дотиків */
+  }
+}
+
+/* Спеціальні стилі для iOS */
+@supports (-webkit-touch-callout: none) {
+  body.modal-open {
+    position: fixed;
+    width: 100%;
+  }
+}
 }

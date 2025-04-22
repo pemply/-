@@ -166,6 +166,7 @@ function init() {
     overlay.classList.add('hidden');
   }
   
+  // Додаємо клас для мобільних пристроїв
   if (isMobile) {
     document.body.classList.add('mobile-device');
   }
@@ -414,7 +415,42 @@ function toggleCart() {
       overlay.classList.add('hidden');
     }, 300);
   }
-  
+  function setupEventListeners() {
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+      overlay.addEventListener('click', closeAllModals);
+      overlay.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        closeAllModals();
+      }, { passive: false });
+    }
+    
+    const phoneInput = document.getElementById('phone');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', formatPhoneInput);
+    }
+    
+    // Додаємо обробник для кнопки "Продовжити покупки"
+    const continueBtn = document.querySelector('.cart-buttons button:nth-child(3)');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', toggleCart);
+      continueBtn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        toggleCart();
+      }, { passive: false });
+    }
+    
+    // Додаємо обробник для інших кнопок кошика
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.cart-buttons button:nth-child(1)')) {
+        e.preventDefault();
+        clearCart();
+      } else if (e.target.closest('.cart-buttons button:nth-child(2)')) {
+        e.preventDefault();
+        checkout();
+      }
+    });
+  }
   // Для iOS фіксуємо body при відкритому модальному вікні
   if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
     if (!cartModal.classList.contains('hidden')) {
