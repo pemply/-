@@ -746,4 +746,8 @@ footer {
     width: 100%;
   }
 }
+.cart-buttons button {
+  touch-action: manipulation; /* Покращує обробку дотиків на мобільних */
+  min-height: 44px; /* Мінімальний розмір для дотиків */
+}
 }
