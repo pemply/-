@@ -186,18 +186,24 @@ function setupEventListeners() {
     phoneInput.addEventListener('input', formatPhoneInput);
   }
   
-  // Додаємо обробник для всіх кнопок кошика
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.cart-buttons button')) {
+  // Додаємо обробник для кнопки "Продовжити покупки"
+  const continueBtn = document.querySelector('.cart-buttons button:nth-child(3)');
+  if (continueBtn) {
+    continueBtn.addEventListener('click', toggleCart);
+    continueBtn.addEventListener('touchend', function(e) {
       e.preventDefault();
-      const button = e.target.closest('button');
-      if (button.textContent.includes('Очистити')) {
-        clearCart();
-      } else if (button.textContent.includes('Оформити')) {
-        checkout();
-      } else if (button.textContent.includes('Продовжити')) {
-        toggleCart();
-      }
+      toggleCart();
+    }, { passive: false });
+  }
+  
+  // Додаємо обробник для інших кнопок кошика
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.cart-buttons button:nth-child(1)')) {
+      e.preventDefault();
+      clearCart();
+    } else if (e.target.closest('.cart-buttons button:nth-child(2)')) {
+      e.preventDefault();
+      checkout();
     }
   });
 }
