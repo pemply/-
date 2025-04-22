@@ -146,45 +146,91 @@ const products = [
 ];
 let cart = [];
 let selectedCategory = 'Всі';
+let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 function init() {
   displayProducts();
   loadCartFromLocalStorage();
   setupEventListeners();
+  
+  // Додаємо клас для body, щоб знати, що це мобільний пристрій
+  if (isMobile) {
+    document.body.classList.add('mobile-device');
+  }
 }
 
 function setupEventListeners() {
-  document.getElementById('overlay').addEventListener('click', closeAllModals);
+  const overlay = document.getElementById('overlay');
+  if (overlay) {
+    overlay.addEventListener('click', closeAllModals);
+    overlay.addEventListener('touchstart', closeAllModals);
+  }
   
   const phoneInput = document.getElementById('phone');
   if (phoneInput) {
-    phoneInput.addEventListener('input', function() {
-      this.value = this.value.replace(/[^\d+]/g, '');
-      if (!this.value.startsWith('+380')) {
-        this.value = '+380';
-      }
-      if (this.value.length > 13) {
-        this.value = this.value.slice(0, 13);
-      }
-    });
+    phoneInput.addEventListener('input', formatPhoneInput);
   }
   
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAllModals();
-  });
+  // Додаємо обробник для кнопки "Гаразд" у вікні успіху
+  const successButton = document.querySelector('#success-modal button');
+  if (successButton) {
+    successButton.addEventListener('click', closeSuccessModal);
+    successButton.addEventListener('touchend', closeSuccessModal);
+  }
+}
+
+function formatPhoneInput() {
+  let value = this.value.replace(/[^\d+]/g, '');
+  if (!value.startsWith('+380')) {
+    value = '+380';
+  }
+  if (value.length > 13) {
+    value = value.slice(0, 13);
+  }
+  this.value = value;
 }
 
 function closeAllModals() {
-  document.getElementById('cart-modal').classList.remove('active');
-  document.getElementById('cart-modal').classList.add('hidden');
-  document.getElementById('checkout-modal').classList.add('hidden');
-  document.getElementById('success-modal').classList.add('hidden');
-  document.getElementById('overlay').classList.add('hidden');
+  const cartModal = document.getElementById('cart-modal');
+  const checkoutModal = document.getElementById('checkout-modal');
+  const successModal = document.getElementById('success-modal');
+  const overlay = document.getElementById('overlay');
+  
+  if (cartModal) {
+    cartModal.classList.remove('active');
+    cartModal.classList.add('hidden');
+  }
+  
+  if (checkoutModal) {
+    checkoutModal.classList.add('hidden');
+  }
+  
+  if (successModal) {
+    successModal.classList.add('hidden');
+  }
+  
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
 }
 
 function closeSuccessModal() {
-  document.getElementById('success-modal').classList.add('hidden');
-  document.getElementById('overlay').classList.add('hidden');
+  const successModal = document.getElementById('success-modal');
+  const overlay = document.getElementById('overlay');
+  
+  if (successModal) {
+    successModal.classList.add('hidden');
+  }
+  
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+  
+  // Додатковий код для iOS, щоб запобігти залишенню прокрутки
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    document.body.style.overflow = 'auto';
+    document.body.style.position = 'static';
+  }
 }
 
 function displayProducts() {
@@ -306,7 +352,17 @@ async function submitOrder(event) {
       updateCart();
       saveCartToLocalStorage();
       form.reset();
-      closeAllModals();
+      
+      // Закриваємо модальне вікно оформлення
+      document.getElementById('checkout-modal').classList.add('hidden');
+      
+      // Для мобільних пристроїв додаємо невелику затримку
+      if (isMobile) {
+        setTimeout(() => {
+          document.getElementById('overlay').classList.remove('hidden');
+          document.getElementById('success-modal').classList.remove('hidden');
+        }, 100);
+      }
     } else {
       throw new Error('Помилка відправки');
     }
@@ -318,15 +374,27 @@ async function submitOrder(event) {
 
 function showSuccessMessage(name, total) {
   const successMessage = document.getElementById('success-message');
+  const successModal = document.getElementById('success-modal');
+  const overlay = document.getElementById('overlay');
+  
+  if (!successMessage || !successModal || !overlay) return;
+  
   successMessage.innerHTML = `
     <p>Дякуємо, ${name}!</p>
     <p>Ваше замовлення на суму <strong>${total} грн</strong> прийнято.</p>
     <p>Ми зв'яжемося з вами для підтвердження.</p>
   `;
   
-  document.getElementById('success-modal').classList.remove('hidden');
-  document.getElementById('overlay').classList.remove('hidden');
+  overlay.classList.remove('hidden');
+  successModal.classList.remove('hidden');
+  
+  // Додатковий код для iOS, щоб запобігти прокрутці під модальним вікном
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+  }
 }
+
 
 function showNotification(message, type = 'success') {
   const notification = document.createElement('div');

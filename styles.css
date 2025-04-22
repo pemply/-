@@ -725,4 +725,36 @@ footer {
   .notification.error {
     background: #ff3b30;
   }
+  /* Додаткові стилі для мобільних пристроїв */
+.mobile-device .modal-content {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+
+.mobile-device .cart-modal,
+.mobile-device .checkout-modal,
+.mobile-device .success-modal {
+  transform: translateY(0);
+  top: 10%;
+  left: 5%;
+  right: 5%;
+  bottom: auto;
+  width: 90%;
+  max-height: 80vh;
+}
+
+.mobile-device .cart-buttons button,
+.mobile-device .checkout-buttons button {
+  min-height: 48px;
+  padding: 12px;
+}
+
+/* Спеціальні стилі для iOS */
+@supports (-webkit-touch-callout: none) {
+  body.modal-open {
+    position: fixed;
+    width: 100%;
+  }
+}
 }
