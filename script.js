@@ -144,76 +144,49 @@ const products = [
     description: 'Комплекс для зниження жирової прослойки та підвищення витривалості.'
   }
 ];
-
-// Глобальні змінні
 let cart = [];
 let selectedCategory = 'Всі';
-let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-/**
- * Ініціалізація магазину
- */
 function init() {
   displayProducts();
   loadCartFromLocalStorage();
   setupEventListeners();
-  detectDeviceType();
-  setupTouchOptimizations();
-  
-  // Додаткові ініціалізації для мобільних пристроїв
-  if (isMobile) {
-    setupMobileSpecificFeatures();
-  }
 }
 
-/**
- * Налаштування особливостей для мобільних пристроїв
- */
-function setupMobileSpecificFeatures() {
-  // Додаємо клас для body для мобільних стилів
-  document.body.classList.add('mobile-device');
-  
-  // Оптимізація для iOS
-  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-    document.body.style.cursor = 'pointer';
-    setupIOSSpecifics();
-  }
-  
-  // Оптимізація для Android
-  if (/Android/.test(navigator.userAgent)) {
-    setupAndroidSpecifics();
-  }
-  
-  // Ініціалізація свайп-жестів
-  initSwipeGestures();
-}
-
-/**
- * Налаштування слухачів подій
- */
 function setupEventListeners() {
-  // Overlay для закриття модальних вікон
   document.getElementById('overlay').addEventListener('click', closeAllModals);
-  document.getElementById('overlay').addEventListener('touchstart', handleTouchEvent);
   
-  // Оптимізація вводу телефону
   const phoneInput = document.getElementById('phone');
   if (phoneInput) {
-    phoneInput.addEventListener('input', formatPhoneInput);
-    phoneInput.addEventListener('focus', showVirtualKeyboardOptimized);
+    phoneInput.addEventListener('input', function() {
+      this.value = this.value.replace(/[^\d+]/g, '');
+      if (!this.value.startsWith('+380')) {
+        this.value = '+380';
+      }
+      if (this.value.length > 13) {
+        this.value = this.value.slice(0, 13);
+      }
+    });
   }
   
-  // Оптимізація для touch-пристроїв
-  document.addEventListener('touchstart', handleTouchEvent, { passive: true });
-  document.addEventListener('touchmove', handleTouchMove, { passive: false });
-  
-  // Ресайз вікна
-  window.addEventListener('resize', handleWindowResize);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAllModals();
+  });
 }
 
-/**
- * Відображення товарів з урахуванням адаптивності
- */
+function closeAllModals() {
+  document.getElementById('cart-modal').classList.remove('active');
+  document.getElementById('cart-modal').classList.add('hidden');
+  document.getElementById('checkout-modal').classList.add('hidden');
+  document.getElementById('success-modal').classList.add('hidden');
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+function closeSuccessModal() {
+  document.getElementById('success-modal').classList.add('hidden');
+  document.getElementById('overlay').classList.add('hidden');
+}
+
 function displayProducts() {
   const list = document.getElementById('product-list');
   list.innerHTML = '';
@@ -223,172 +196,205 @@ function displayProducts() {
     : products.filter(p => p.category === selectedCategory);
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="no-products"><i class="fas fa-box-open"></i><p>Товарів у цій категорії не знайдено</p></div>';
+    list.innerHTML = '<p class="no-products">Товарів у цій категорії не знайдено</p>';
     return;
   }
 
-  // Визначаємо кількість колонок в залежності від ширини екрану
-  const columns = calculateColumnsCount();
-  
-  // Застосовуємо відповідну grid-структуру
-  list.style.gridTemplateColumns = `repeat(${columns}, minmax(140px, 1fr))`;
-  
   filtered.forEach(product => {
-    const productElement = createProductElement(product);
-    list.appendChild(productElement);
+    const div = document.createElement('div');
+    div.className = 'product';
+    div.innerHTML = `
+      <img src="${product.image}" alt="${product.name}" loading="lazy">
+      <h3>${product.name}</h3>
+      <p>${product.price} грн</p>
+      <div class="product-tooltip">${product.description}</div>
+      <button onclick="addToCart(${product.id})">Додати</button>
+    `;
+    list.appendChild(div);
   });
 }
 
-/**
- * Створення елементу товару з адаптацією
- */
-function createProductElement(product) {
-  const div = document.createElement('div');
-  div.className = 'product';
-  
-  // Додаємо бейдж для акційних товарів
-  const discountBadge = product.discount ? `<span class="discount-badge">-${product.discount}%</span>` : '';
-  
-  div.innerHTML = `
-    ${discountBadge}
-    <div class="product-image-container">
-      <img src="${product.image}" alt="${product.name}" loading="lazy" class="product-image">
-    </div>
-    <h3 class="product-title">${product.name}</h3>
-    <div class="product-price-container">
-      ${product.oldPrice ? `<span class="old-price">${product.oldPrice} грн</span>` : ''}
-      <span class="current-price">${product.price} грн</span>
-    </div>
-    <div class="product-rating">
-      ${generateRatingStars(product.rating)}
-    </div>
-    <button class="add-to-cart-btn" onclick="addToCart(${product.id})">
-      <i class="fas fa-cart-plus"></i> Додати
-    </button>
-    <div class="product-tooltip">${product.description}</div>
-  `;
-  
-  // Додаємо обробники подій для touch
-  if (isMobile) {
-    div.addEventListener('touchstart', handleProductTouchStart);
-    div.addEventListener('touchend', handleProductTouchEnd);
-  }
-  
-  return div;
+function filterByCategory(category) {
+  selectedCategory = category;
+  displayProducts();
+  document.querySelectorAll('.filters button').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === category);
+  });
 }
 
-/**
- * Логіка для кошика (розширена версія)
- */
+function addToCart(productId) {
+  const product = products.find(p => p.id === productId);
+  if (product) {
+    const existingItem = cart.find(item => item.id === product.id);
+    if (existingItem) {
+      existingItem.quantity = (existingItem.quantity || 1) + 1;
+    } else {
+      cart.push({...product, quantity: 1});
+    }
+    updateCart();
+    saveCartToLocalStorage();
+    showNotification(`${product.name} додано до кошика!`);
+  }
+}
+
 function updateCart() {
-  // Оновлюємо лічильник
   const itemCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   document.getElementById('cart-count').textContent = itemCount;
   
-  // Оновлюємо список товарів у кошику
   const list = document.getElementById('cart-items');
   const total = cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
   document.getElementById('total-price').textContent = total.toFixed(2);
   
-  // Генеруємо HTML для кошика
   list.innerHTML = cart.length === 0 
-    ? '<li class="empty-cart-message"><i class="fas fa-shopping-cart"></i><p>Кошик порожній</p></li>'
+    ? '<li>Кошик порожній</li>'
     : cart.map((item, index) => `
-        <li class="cart-item">
-          <div class="cart-item-info">
-            <img src="${item.image}" alt="${item.name}" class="cart-item-image">
-            <div>
-              <span class="cart-item-name">${item.name}</span>
-              <span class="cart-item-price">${item.price} грн × ${item.quantity || 1}</span>
-            </div>
-          </div>
-          <div class="cart-item-controls">
-            <button class="quantity-btn" onclick="changeQuantity(${index}, -1)">−</button>
-            <span class="quantity-value">${item.quantity || 1}</span>
-            <button class="quantity-btn" onclick="changeQuantity(${index}, 1)">+</button>
-            <button class="remove-btn" onclick="removeFromCart(${index})">
-              <i class="fas fa-trash-alt"></i>
-            </button>
+        <li>
+          <span>${item.name} – ${item.price} грн × ${item.quantity || 1}</span>
+          <div>
+            <button onclick="changeQuantity(${index}, -1)">-</button>
+            <span>${item.quantity || 1}</span>
+            <button onclick="changeQuantity(${index}, 1)">+</button>
+            <button class="remove" onclick="removeFromCart(${index})">❌</button>
           </div>
         </li>
       `).join('');
   
-  // Оновлюємо кнопки кошика
-  updateCartButtons();
-  
-  // Зберігаємо зміни
-  saveCartToLocalStorage();
-  
-  // Оновлюємо міні-кошик (якщо є)
-  updateMiniCart();
+  document.querySelector('.cart-buttons button:nth-child(2)').disabled = cart.length === 0;
 }
 
-/**
- * Відправка замовлення (розширена версія)
- */
 async function submitOrder(event) {
   event.preventDefault();
   
-  // Валідація форми
-  if (!validateOrderForm()) {
+  const form = event.target;
+  const name = document.getElementById('name').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  
+  if (!name || !address || !phone) {
+    showNotification('Будь ласка, заповніть всі поля', 'error');
     return;
   }
-  
-  // Підготовка даних
-  const orderData = prepareOrderData();
-  
+
+  const total = cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+  const orderItems = cart.map(item => 
+    `${item.name} (${item.quantity} шт.) — ${item.price * item.quantity} грн`
+  ).join('\n');
+
   try {
-    // Відправка на сервер
-    const response = await sendOrderToServer(orderData);
-    
-    if (response.success) {
-      showSuccessMessage(orderData);
-      clearCartAfterOrder();
+    // Відправка даних на FormSubmit
+    const response = await fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        "Ім'я": name,
+        "Адреса": address,
+        "Телефон": phone,
+        "Замовлення": orderItems,
+        "Сума": `${total} грн`,
+        "_subject": 'Нове замовлення з FitPower!',
+        "_template": 'table',
+        "_captcha": 'false'
+      })
+    });
+
+    if (response.ok) {
+      showSuccessMessage(name, total);
+      cart = [];
+      updateCart();
+      saveCartToLocalStorage();
+      form.reset();
       closeAllModals();
     } else {
-      handleOrderError(response.error);
+      throw new Error('Помилка відправки');
     }
   } catch (error) {
-    console.error('Помилка при відправці замовлення:', error);
-    showNotification('Сталася помилка при відправці замовлення. Спробуйте ще раз.', 'error');
+    console.error('Помилка:', error);
+    showNotification('Помилка при відправці замовлення. Спробуйте ще раз.', 'error');
   }
 }
 
-/**
- * Додаткові функції для мобільних пристроїв
- */
-function setupTouchOptimizations() {
-  // Збільшення клікабельних областей
-  document.querySelectorAll('button, a').forEach(el => {
-    el.style.minWidth = '44px';
-    el.style.minHeight = '44px';
-  });
+function showSuccessMessage(name, total) {
+  const successMessage = document.getElementById('success-message');
+  successMessage.innerHTML = `
+    <p>Дякуємо, ${name}!</p>
+    <p>Ваше замовлення на суму <strong>${total} грн</strong> прийнято.</p>
+    <p>Ми зв'яжемося з вами для підтвердження.</p>
+  `;
   
-  // Оптимізація інпутів
-  document.querySelectorAll('input, textarea').forEach(input => {
-    input.style.fontSize = '16px'; // Запобігає масштабуванню в iOS
-  });
-  
-  // Додаткові стилі для touch
-  document.body.style.webkitTapHighlightColor = 'transparent';
+  document.getElementById('success-modal').classList.remove('hidden');
+  document.getElementById('overlay').classList.remove('hidden');
 }
 
-/**
- * Визначення типу пристрою
- */
-function detectDeviceType() {
-  const userAgent = navigator.userAgent;
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
   
-  if (/Mobile|Android|iP(hone|od)|IEMobile/.test(userAgent)) {
-    isMobile = true;
-    document.documentElement.classList.add('touch-device');
-  } else {
-    isMobile = false;
-    document.documentElement.classList.add('desktop-device');
+  setTimeout(() => notification.classList.add('show'), 10);
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+function toggleCart() {
+  const cartModal = document.getElementById('cart-modal');
+  cartModal.classList.toggle('hidden');
+  document.getElementById('overlay').classList.toggle('hidden');
+  setTimeout(() => cartModal.classList.toggle('active'), 10);
+}
+
+function checkout() {
+  document.getElementById('cart-modal').classList.remove('active');
+  setTimeout(() => {
+    document.getElementById('cart-modal').classList.add('hidden');
+    document.getElementById('checkout-modal').classList.remove('hidden');
+  }, 300);
+}
+
+function cancelCheckout() {
+  closeAllModals();
+}
+
+function changeQuantity(index, delta) {
+  const item = cart[index];
+  item.quantity = (item.quantity || 1) + delta;
+  if (item.quantity < 1) cart.splice(index, 1);
+  updateCart();
+  saveCartToLocalStorage();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  updateCart();
+  saveCartToLocalStorage();
+}
+
+function clearCart() {
+  cart = [];
+  updateCart();
+  saveCartToLocalStorage();
+}
+
+function saveCartToLocalStorage() {
+  localStorage.setItem('fitpower_cart', JSON.stringify(cart));
+}
+
+function loadCartFromLocalStorage() {
+  const savedCart = localStorage.getItem('fitpower_cart');
+  if (savedCart) {
+    try {
+      cart = JSON.parse(savedCart);
+      updateCart();
+    } catch (e) {
+      console.error('Помилка завантаження кошика', e);
+      localStorage.removeItem('fitpower_cart');
+    }
   }
 }
 
-// Інші функції...
-
-// Ініціалізація при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', init);
